@@ -385,6 +385,10 @@ namespace NativeWebSocket
         private List<ArraySegment<byte>> sendBytesQueue = new List<ArraySegment<byte>>();
         private List<ArraySegment<byte>> sendTextQueue = new List<ArraySegment<byte>>();
 
+        // Public configurator for the underlying ClientWebSocket options.
+        // Callers can set this to customize `m_Socket.Options` before the socket is used.
+        public Action<ClientWebSocketOptions> ConfigureSocketOptions { get; set; }
+
         public WebSocket(string url, Dictionary<string, string> headers = null)
         {
             uri = new Uri(url);
@@ -458,6 +462,17 @@ namespace NativeWebSocket
                 m_CancellationToken = m_TokenSource.Token;
 
                 m_Socket = new ClientWebSocket();
+
+                // Allow caller to customize ClientWebSocket.Options before use.
+                try
+                {
+                    ConfigureSocketOptions?.Invoke(m_Socket.Options);
+                }
+                catch (Exception ex)
+                {
+                    // Swallow exceptions from configurator and report as OnError to avoid breaking connect flow.
+                    OnError?.Invoke($"ConfigureSocketOptions threw: {ex.Message}");
+                }
 
                 foreach (var header in headers)
                 {
